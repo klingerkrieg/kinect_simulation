@@ -64,12 +64,29 @@ handle_tracker_pos_quat(void *userdata, const vrpn_TRACKERCB t)
 
 
 
-void readMockFile(){
+struct Pos{
+	float pos1;
+	float pos2;
+	float pos3;
+};
+
+struct Quat{
+	float quat1;
+	float quat2;
+	float quat3;
+	float quat4;
+};
+
+
+
+
+void readMockFile(int sensors[], float positions[][3], float quaterions[][4], int size){
 
 	char str[512];
 	FILE * file;
-	file = fopen( "mock.txt" , "r");
-	
+	file = fopen( "mock2.txt" , "r");
+
+	int i = 0;
 	
 	if (file) {
 		while ( fgets (str , 100 , file) != NULL ){
@@ -109,8 +126,30 @@ void readMockFile(){
 			double quat4 = atof(part);
 
 
-			printf("sensor: [%d] pos:[%.2f][%.2f][%.2f] quat: [%.2f][%.2f][%.2f][%.2f]\n", sensor, pos1, pos2, pos3, quat1, quat2, quat3, quat4);
+			//printf("sensor: [%d] pos:[%.2f][%.2f][%.2f] quat: [%.2f][%.2f][%.2f][%.2f]\n", sensor, pos1, pos2, pos3, quat1, quat2, quat3, quat4);
+			/*t[i].sensor = sensor;
+			t[i].pos[0] = pos1;
+			t[i].pos[1] = pos2;
+			t[i].pos[2] = pos3;
+			t[i].quat[0] = quat1;
+			t[i].quat[1] = quat2;
+			t[i].quat[2] = quat3;
+			t[i].quat[3] = quat4;*/
+			sensors[i] = sensor;
+			positions[i][0] = (float)pos1;
+			positions[i][1] = (float)pos2;
+			positions[i][2] = (float)pos2;
+			quaterions[i][0] = (float)quat1;
+			quaterions[i][1] = (float)quat2;
+			quaterions[i][2] = (float)quat3;
+			quaterions[i][3] = (float)quat4;
+
+
 			
+			i++;
+			if (size == i){
+				break;
+			}
 		}
 		fclose(file);
 	}
@@ -120,7 +159,15 @@ void readMockFile(){
 
 int main (int argc, char * argv []) {
 
-	//readMockFile();
+	//esse numero nao pode ser maior do que a quantidade de linhas com dados no arquivo de mock
+	const int lenMock = 31000;
+	//vrpn_TRACKERCB tMocked[15000];
+	int sensors[lenMock];
+	float positions[lenMock][3];
+	float quaternions[lenMock][4];
+
+
+	readMockFile(sensors, positions, quaternions, lenMock);
 	//return -1;
 
 	printf("default port: %d \n", CONNECTION_PORT);
@@ -133,7 +180,7 @@ int main (int argc, char * argv []) {
 	connection = vrpn_create_server_connection(CONNECTION_PORT);
 
 	// Open the tracker server, using this connection, 2 sensors, update 60 times/sec
-	ntkr = new vrpn_Tracker_Server(TRACKER_NAME, connection);
+	ntkr = new vrpn_Tracker_Server(TRACKER_NAME, connection, 20);
 
 	
 	
@@ -154,24 +201,33 @@ int main (int argc, char * argv []) {
 	/* 
 	 * main interactive loop
 	 */
+	int i = 0;
 	while ( 1 ) {
 		// Let the tracker server, client and connection do their things
 		ntkr->mainloop();
 		//ntkr->server_mainloop();
-		vrpn_uint32 sensor = 0;
+		
+		//vrpn_uint32 sensor = tMocked[i].sensor;
 		timeval t;
 		t.tv_sec = 1;
 		t.tv_usec = 1;
-		vrpn_float64 position[3] = {1.0,1.0,1.0};
-		vrpn_float64 quaternion[4] = {1.0,1.0,1.0, 1.0};
+		vrpn_float64 position[3] = {positions[i][0], positions[i][1], positions[i][2]};
+		vrpn_float64 quaternion[4] = {quaternions[i][0], quaternions[i][1], quaternions[i][2], quaternions[i][3]};
 		
-		ntkr->report_pose(sensor,t,position,quaternion,vrpn_CONNECTION_LOW_LATENCY);
+
+		//ntkr->report_pose(tMocked[i].sensor,t,tMocked[i].pos,tMocked[i].quat,vrpn_CONNECTION_LOW_LATENCY);
+		ntkr->report_pose(sensors[i],t, position, quaternion,vrpn_CONNECTION_LOW_LATENCY);
 
 		tkr->mainloop();
 		connection->mainloop();
 
 		// Sleep for 1ms so we don't eat the CPU
-		vrpn_SleepMsecs(800);
+		vrpn_SleepMsecs(1);
+		i++;
+
+		if (i == lenMock){
+			i = 0;
+		}
 	}
 
 	return 0;
