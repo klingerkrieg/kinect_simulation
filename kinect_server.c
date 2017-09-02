@@ -70,9 +70,13 @@ handle_tracker_pos_quat(void *userdata, const vrpn_TRACKERCB t)
 int main (int argc, char * argv []) {
 
 	printf("default port: %d \n", CONNECTION_PORT);
-	if (argc != 1) {
-		fprintf(stderr, "Usage: %s\n", argv[0]);
+	if (argc != 2) {
+		fprintf(stderr, "Usage: %s\n\n p - Print tracking\nany - no print", argv[0]);
 		return -1;
+	}
+	bool print = false;
+	if ( argv[1][0] == 'p' ){
+		print = true;
 	}
 
 	// explicitly open the connection
@@ -95,12 +99,18 @@ int main (int argc, char * argv []) {
 
 	// Set up the tracker callback handlers
 	//printf("Tracker update: '.' = pos, '/' = vel, '~' = acc\n");
-	tkr->register_change_handler(tc1, handle_tracker_pos_quat);
+	if ( print ){
+		tkr->register_change_handler(tc1, handle_tracker_pos_quat);
+	}
 
 	//Le o arquivo e faz o mainloop ao mesmo tempo
 	char str[512];
 	FILE * file;
 	file = fopen( "mock2.txt" , "r");
+
+	timeval t;
+	t.tv_sec = 1;
+	t.tv_usec = t.tv_sec;
 
 	if (file) {
 
@@ -111,6 +121,7 @@ int main (int argc, char * argv []) {
 				if (str[0] != 's'){
 					continue;
 				}
+
 
 				//pula sensor
 				char * part = strtok (str,"\t");
@@ -146,15 +157,15 @@ int main (int argc, char * argv []) {
 				// Let the tracker server, client and connection do their things
 				ntkr->mainloop();
 				
-				timeval t;
-				t.tv_sec = 1;
-				t.tv_usec = 1;
+				
 				vrpn_float64 position[3] = {pos1, pos2, pos3};
 				vrpn_float64 quaternion[4] = {quat1, quat2, quat3, quat4};
 				
 				ntkr->report_pose(sensor,t, position, quaternion,vrpn_CONNECTION_LOW_LATENCY);
 
-				tkr->mainloop();
+				if ( print ){
+					tkr->mainloop();
+				}
 				connection->mainloop();
 
 				// Sleep for 1ms so we don't eat the CPU
